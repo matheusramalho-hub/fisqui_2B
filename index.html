@@ -152,4 +152,207 @@
     };
 
     // Plataformas
-    const platforms =
+    const platforms = [
+      { x: 0, y: 370, w: 220, h: 30 },    // Chão Inicial
+      { x: 260, y: 310, w: 120, h: 20 },  // Plataforma 1
+      { x: 420, y: 250, w: 130, h: 20 },  // Plataforma 2
+      { x: 220, y: 190, w: 120, h: 20 },  // Plataforma 3
+      { x: 380, y: 130, w: 140, h: 20 },  // Plataforma 4
+      { x: 580, y: 180, w: 100, h: 20 },  // Plataforma 5
+      { x: 710, y: 120, w: 90, h: 20 }    // Plataforma do Wonka
+    ];
+
+    // Cupons Dourados
+    const tickets = [
+      { x: 295, y: 270, collected: false },
+      { x: 470, y: 210, collected: false },
+      { x: 265, y: 150, collected: false },
+      { x: 620, y: 140, collected: false }
+    ];
+
+    // Eventos de Teclado
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' ') keys.up = true;
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' ') keys.up = false;
+    });
+
+    // Eventos Touch (Celular)
+    const bindTouch = (id, key) => {
+      const btn = document.getElementById(id);
+      btn.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; });
+      btn.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; });
+      btn.addEventListener('mousedown', () => keys[key] = true);
+      btn.addEventListener('mouseup', () => keys[key] = false);
+    };
+    bindTouch('btnLeft', 'left');
+    bindTouch('btnRight', 'right');
+    bindTouch('btnJump', 'up');
+
+    // Reiniciar
+    function resetPlayer() {
+      player.x = 50;
+      player.y = 300;
+      player.vx = 0;
+      player.vy = 0;
+    }
+
+    // Loop do Jogo
+    function update() {
+      if (gameWon) return;
+
+      // Movimento Horizontal
+      if (keys.left) player.vx = -player.speed;
+      else if (keys.right) player.vx = player.speed;
+      else player.vx = 0;
+
+      // Pulo
+      if (keys.up && player.grounded) {
+        player.vy = player.jumpStrength;
+        player.grounded = false;
+      }
+
+      // Aplicar Gravidade
+      player.vy += player.gravity;
+
+      // Atualizar Posição
+      player.x += player.vx;
+      player.y += player.vy;
+
+      // Limites Laterais da Tela
+      if (player.x < 0) player.x = 0;
+      if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
+
+      // Queda fora da tela (reinicia a posição)
+      if (player.y > canvas.height) {
+        resetPlayer();
+      }
+
+      // Colisão com Plataformas
+      player.grounded = false;
+      platforms.forEach(p => {
+        if (
+          player.x < p.x + p.w &&
+          player.x + player.w > p.x &&
+          player.y + player.h >= p.y &&
+          player.y + player.h <= p.y + p.h + player.vy &&
+          player.vy >= 0
+        ) {
+          player.y = p.y - player.h;
+          player.vy = 0;
+          player.grounded = true;
+        }
+      });
+
+      // Coleta dos Cupons Dourados
+      tickets.forEach(t => {
+        if (!t.collected &&
+            player.x < t.x + 25 &&
+            player.x + player.w > t.x &&
+            player.y < t.y + 20 &&
+            player.y + player.h > t.y) {
+          t.collected = true;
+          score++;
+          statusMsg.innerText = `Cupons Coletados: ${score}/${totalTickets}`;
+        }
+      });
+
+      // Vitória (Chegar ao Willy Wonka)
+      if (player.x < wonka.x + wonka.w &&
+          player.x + player.w > wonka.x &&
+          player.y < wonka.y + wonka.h &&
+          player.y + player.h > wonka.y) {
+        if (score === totalTickets) {
+          gameWon = true;
+          statusMsg.innerText = "🏆 PARABÉNS! Você entregou os Cupons Dourados ao Willy Wonka!";
+        } else {
+          statusMsg.innerText = `Você precisa de todos os ${totalTickets} Cupons Dourados antes de falar com o Wonka!`;
+        }
+      }
+    }
+
+    // Desenho
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Fundo (Rio de Chocolate embaixo)
+      ctx.fillStyle = "#3a1c09";
+      ctx.fillRect(0, 385, canvas.width, 15);
+
+      // Plataformas (Barra de Chocolate)
+      platforms.forEach(p => {
+        ctx.fillStyle = "#5c2c16";
+        ctx.fillRect(p.x, p.y, p.w, p.h);
+        ctx.fillStyle = "#783f04";
+        ctx.fillRect(p.x, p.y, p.w, 4); // Borda superior
+      });
+
+      // Cupons Dourados
+      tickets.forEach(t => {
+        if (!t.collected) {
+          ctx.fillStyle = "#ffd700";
+          ctx.fillRect(t.x, t.y, 25, 15);
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 10px sans-serif";
+          ctx.fillText("🎫", t.x + 4, t.y + 12);
+        }
+      });
+
+      // Willy Wonka (Cartola + Traje)
+      ctx.fillStyle = "#4a125e"; // Casaca Roxa
+      ctx.fillRect(wonka.x + 5, wonka.y + 20, 25, 30);
+      ctx.fillStyle = "#ffdbac"; // Rosto
+      ctx.fillRect(wonka.x + 8, wonka.y + 8, 19, 12);
+      ctx.fillStyle = "#ffd700"; // Cartola Dourada
+      ctx.fillRect(wonka.x + 3, wonka.y, 29, 8);
+      ctx.fillRect(wonka.x + 8, wonka.y - 12, 19, 12);
+
+      // Jogador (Oompa Loompa)
+      // Cabelo Verde
+      ctx.fillStyle = "#2e7d32";
+      ctx.fillRect(player.x + 4, player.y - 6, 22, 10);
+      // Rosto Laranja
+      ctx.fillStyle = "#e65100";
+      ctx.fillRect(player.x + 5, player.y + 2, 20, 14);
+      // Olhos
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(player.x + 8, player.y + 5, 4, 4);
+      ctx.fillRect(player.x + 18, player.y + 5, 4, 4);
+      // Roupa Branca
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(player.x + 3, player.y + 16, 24, 24);
+      // Botões Vermelhos da Roupa
+      ctx.fillStyle = "#d32f2f";
+      ctx.fillRect(player.x + 8, player.y + 22, 3, 3);
+      ctx.fillRect(player.x + 19, player.y + 22, 3, 3);
+
+      // Tela de Vitória
+      if (gameWon) {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#ffd700";
+        ctx.font = "bold 28px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("🎉 VOCÊ VENCEU! 🎉", canvas.width / 2, 180);
+        ctx.font = "18px sans-serif";
+        ctx.fillStyle = "#fff";
+        ctx.fillText("Você é o mais novo Mestre Chocolatier da Fábrica!", canvas.width / 2, 220);
+      }
+    }
+
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>
