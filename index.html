@@ -2,116 +2,154 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Fantástica Fábrica - Pegue o Chocolate!</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A Aventura do Oompa Loompa</title>
   <style>
-    body {
-      text-align: center;
-      font-family: 'Arial', sans-serif;
-      background-color: #2b102f;
-      color: #ffd700;
-      margin-top: 30px;
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
     }
 
-    /* Área onde o chocolate vai aparecer */
-    #fabrica {
-      width: 400px;
-      height: 400px;
-      border: 4px solid #ffd700;
-      background-color: #4a1f52;
-      margin: 20px auto;
+    body {
+      background: linear-gradient(135deg, #2b003b 0%, #4a125e 50%, #1a0022 100%);
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 15px;
+    }
+
+    h1 {
+      color: #ffd700;
+      text-shadow: 2px 2px 4px #000;
+      margin-bottom: 5px;
+      font-size: 1.8rem;
+    }
+
+    .instructions {
+      color: #e0d0f0;
+      font-size: 0.9rem;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    .game-container {
       position: relative;
-      border-radius: 15px;
+      border: 4px solid #ffd700;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.7);
+      background: #11001c;
       overflow: hidden;
     }
 
-    /* O chocolate que se move */
-    #chocolate {
-      width: 60px;
-      height: 60px;
-      font-size: 40px;
-      position: absolute;
-      cursor: pointer;
-      user-select: none;
+    canvas {
+      display: block;
+      background: #230833;
+    }
+
+    .mobile-controls {
       display: flex;
-      align-items: center;
-      justify-content: center;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 800px;
+      margin-top: 15px;
+      gap: 10px;
     }
 
-    button {
-      background-color: #ffd700;
-      color: #2b102f;
+    .btn-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    .ctrl-btn {
+      background: #ffd700;
+      color: #2b003b;
       border: none;
-      padding: 10px 20px;
-      font-size: 18px;
+      padding: 15px 22px;
+      font-size: 1.2rem;
       font-weight: bold;
-      border-radius: 8px;
+      border-radius: 10px;
       cursor: pointer;
+      box-shadow: 0 4px 0 #b39700;
     }
 
-    button:hover {
-      background-color: #fff;
+    .ctrl-btn:active {
+      transform: translateY(4px);
+      box-shadow: none;
+    }
+
+    .status-msg {
+      margin-top: 10px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #ffd700;
+      min-height: 25px;
     }
   </style>
 </head>
 <body>
 
-  <h1>🍫 Fábrica do Willy Wonka 🍫</h1>
-  <p>Pontos: <span id="pontos">0</span> | Tempo: <span id="tempo">15</span>s</p>
+  <h1>🍫 A Aventura do Oompa Loompa 🎩</h1>
+  <p class="instructions">Use as <b>Setas (← →)</b> ou <b>A/D</b> para andar e <b>Espaço / Seta para Cima (↑)</b> para pular!</p>
 
-  <div id="fabrica">
-    <div id="chocolate" onclick="pegarChocolate()">🍫</div>
+  <div class="game-container">
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
   </div>
 
-  <button id="btn-inicio" onclick="iniciarJogo()">Começar Jogo</button>
+  <div class="status-msg" id="statusMsg">Pegue os Cupons Dourados e encontre o Willy Wonka!</div>
+
+  <!-- Controles para Dispositivos Móveis -->
+  <div class="mobile-controls">
+    <div class="btn-group">
+      <button class="ctrl-btn" id="btnLeft">◄</button>
+      <button class="ctrl-btn" id="btnRight">►</button>
+    </div>
+    <button class="ctrl-btn" id="btnJump">PULAR ⬆</button>
+  </div>
 
   <script>
-    let pontos = 0;
-    let tempo = 15;
-    let timer = null;
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const statusMsg = document.getElementById('statusMsg');
 
-    function iniciarJogo() {
-      pontos = 0;
-      tempo = 15;
-      document.getElementById("pontos").innerText = pontos;
-      document.getElementById("tempo").innerText = tempo;
-      document.getElementById("btn-inicio").disabled = true;
+    // Estado do Jogo
+    let gameWon = false;
+    let score = 0;
+    const totalTickets = 4;
 
-      moverChocolate();
+    // Teclas
+    const keys = {
+      left: false,
+      right: false,
+      up: false
+    };
 
-      // Contador do tempo (diminui 1 segundo a cada 1000ms)
-      clearInterval(timer);
-      timer = setInterval(() => {
-        tempo--;
-        document.getElementById("tempo").innerText = tempo;
+    // Jogador (Oompa Loompa)
+    const player = {
+      x: 50,
+      y: 300,
+      w: 30,
+      h: 40,
+      vx: 0,
+      vy: 0,
+      speed: 4,
+      jumpStrength: -11,
+      gravity: 0.5,
+      grounded: false
+    };
 
-        if (tempo <= 0) {
-          clearInterval(timer);
-          alert("Tempo esgotado! Você pegou " + pontos + " chocolates do Wonka!");
-          document.getElementById("btn-inicio").disabled = false;
-        }
-      }, 1000);
-    }
+    // Willy Wonka (Objetivo)
+    const wonka = {
+      x: 730,
+      y: 70,
+      w: 35,
+      h: 50
+    };
 
-    // Função para quando clica no chocolate
-    function pegarChocolate() {
-      if (tempo > 0) {
-        pontos++;
-        document.getElementById("pontos").innerText = pontos;
-        moverChocolate();
-      }
-    }
-
-    // Move o chocolate para uma posição aleatória dentro do quadro
-    function moverChocolate() {
-      let area = document.getElementById("fabrica");
-      let x = Math.floor(Math.random() * (area.clientWidth - 60));
-      let y = Math.floor(Math.random() * (area.clientHeight - 60));
-
-      let doc = document.getElementById("chocolate");
-      doc.style.left = x + "px";
-      doc.style.top = y + "px";
-    }
-  </script>
-
-</body>
-</html>
+    // Plataformas
+    const platforms =
